@@ -1,12 +1,36 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
+type Mode = 'login' | 'signup' | 'otp-email' | 'otp-code'
+
 export function Login() {
+  const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [token, setToken] = useState('')
-  const [step, setStep] = useState<'email' | 'code'>('email')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+
+  async function handlePasswordAuth(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setMessage('')
+
+    if (mode === 'signup') {
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        setMessage(error.message)
+      } else {
+        setMessage('Account created! You are now logged in.')
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setMessage(error.message)
+      }
+    }
+    setLoading(false)
+  }
 
   async function handleSendCode(e: React.FormEvent) {
     e.preventDefault()
@@ -14,11 +38,10 @@ export function Login() {
     setMessage('')
 
     const { error } = await supabase.auth.signInWithOtp({ email })
-
     if (error) {
       setMessage(error.message)
     } else {
-      setStep('code')
+      setMode('otp-code')
       setMessage('Check your email for the 6-digit code.')
     }
     setLoading(false)
@@ -29,16 +52,19 @@ export function Login() {
     setLoading(true)
     setMessage('')
 
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'email',
-    })
-
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
     if (error) {
       setMessage(error.message)
     }
     setLoading(false)
+  }
+
+  const linkStyle = {
+    background: 'transparent',
+    color: 'var(--color-primary)',
+    padding: 0,
+    fontSize: '0.85rem',
+    fontWeight: 400 as const,
   }
 
   return (
@@ -55,7 +81,47 @@ export function Login() {
         Log workouts. Hit milestones. Earn rewards.
       </p>
 
-      {step === 'email' ? (
+      {(mode === 'login' || mode === 'signup') && (
+        <form onSubmit={handlePasswordAuth} style={{ width: '100%', maxWidth: 360 }}>
+          <input
+            type="email"
+            placeholder="your@email.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            style={{ marginBottom: 12 }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            minLength={6}
+            style={{ marginBottom: 12 }}
+          />
+          <button type="submit" disabled={loading} style={{ width: '100%' }}>
+            {loading ? 'Please wait...' : mode === 'signup' ? 'Sign up' : 'Log in'}
+          </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+            {mode === 'login' ? (
+              <button type="button" onClick={() => { setMode('signup'); setMessage('') }} style={linkStyle}>
+                Create account
+              </button>
+            ) : (
+              <button type="button" onClick={() => { setMode('login'); setMessage('') }} style={linkStyle}>
+                Back to login
+              </button>
+            )}
+            <button type="button" onClick={() => { setMode('otp-email'); setMessage('') }} style={linkStyle}>
+              Use email code
+            </button>
+          </div>
+        </form>
+      )}
+
+      {mode === 'otp-email' && (
         <form onSubmit={handleSendCode} style={{ width: '100%', maxWidth: 360 }}>
           <input
             type="email"
@@ -68,8 +134,13 @@ export function Login() {
           <button type="submit" disabled={loading} style={{ width: '100%' }}>
             {loading ? 'Sending...' : 'Send login code'}
           </button>
+          <button type="button" onClick={() => { setMode('login'); setMessage('') }} style={{ ...linkStyle, marginTop: 12 }}>
+            Use password instead
+          </button>
         </form>
-      ) : (
+      )}
+
+      {mode === 'otp-code' && (
         <form onSubmit={handleVerifyCode} style={{ width: '100%', maxWidth: 360 }}>
           <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: 12 }}>
             Code sent to {email}
@@ -87,11 +158,7 @@ export function Login() {
           <button type="submit" disabled={loading} style={{ width: '100%' }}>
             {loading ? 'Verifying...' : 'Log in'}
           </button>
-          <button
-            type="button"
-            onClick={() => { setStep('email'); setToken(''); setMessage('') }}
-            style={{ width: '100%', marginTop: 8, background: 'transparent', color: 'var(--color-text-secondary)' }}
-          >
+          <button type="button" onClick={() => { setMode('otp-email'); setToken(''); setMessage('') }} style={{ ...linkStyle, marginTop: 12 }}>
             Use different email
           </button>
         </form>
