@@ -16,7 +16,7 @@ export default defineConfig({
         theme_color: '#6366f1',
         background_color: '#f8fafc',
         display: 'standalone',
-        start_url: '/',
+        start_url: '/RewardFit/',
         icons: [
           {
             src: 'icons/icon-192.png',
